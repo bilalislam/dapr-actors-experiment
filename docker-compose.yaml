@@ -1,0 +1,59 @@
+version: "3.7"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: server
+    ports:
+      - "5003:5003"
+
+  server_dapr:
+    image: "daprio/daprd:1.2.2"
+    command:
+      [
+        "./daprd",
+        "-app-id",
+        "server",
+        "-app-port",
+        "80",
+        "--placement-host-address", "placement_service:50005",
+        "-config",
+        "/dapr/appconfig.yaml",
+        "-components-path",
+        "/dapr",
+      ]
+    volumes:
+      - "./components:/dapr"
+    depends_on:
+      - server
+      - placement
+    network_mode: "service:server"
+
+  placement:
+    container_name: "placement_service"
+    image: "daprio/dapr"
+    command: ["./placement", "--port", "50005"]
+    ports:
+      - "50005:50005"
+
+  redis:
+    container_name: "redis_service"
+    image: "redis:6.2-alpine"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+
+  zipkin:
+    container_name: "zipkin_service"
+    image: "openzipkin/zipkin:2.23.2"
+    ports:
+      - 9411:9411
+
+networks:
+  default:
+    name: dapr_network
+    driver: bridge
